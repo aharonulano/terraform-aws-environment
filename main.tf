@@ -35,7 +35,7 @@ resource "aws_internet_gateway" "igw" {
 }
 
 resource "aws_eip" "nat_eip" {
-  vpc = true
+  domain = "vpc"
 }
 
 resource "aws_nat_gateway" "nat_gw" {
@@ -84,10 +84,10 @@ resource "aws_route_table_association" "private_association" {
 }
 
 resource "aws_instance" "public_instance" {
-  ami           = "ami-0453ec754f44f9a4a"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.public.id
-
+  ami             = "ami-0453ec754f44f9a4a"
+  instance_type   = "t2.micro"
+  subnet_id       = aws_subnet.public.id
+  security_groups = [aws_security_group.public_sg.id]
   tags = {
     Name = "public-instance"
   }
@@ -95,11 +95,69 @@ resource "aws_instance" "public_instance" {
 
 
 resource "aws_instance" "private_instance" {
-  ami           = "ami-0453ec754f44f9a4a"
-  instance_type = "t2.micro"
-  subnet_id     = aws_subnet.private.id
+  ami             = "ami-0453ec754f44f9a4a"
+  instance_type   = "t2.micro"
+  subnet_id       = aws_subnet.private.id
+  security_groups = [aws_security_group.private_sg.id]
 
   tags = {
     Name = "private-instance"
+  }
+}
+
+
+resource "aws_security_group" "public_sg" {
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "Allow HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Replace with your IP for better security
+  }
+
+  ingress {
+    description = "Allow SSH from anywhere"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow all outbound network"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "public-sg"
+  }
+}
+
+resource "aws_security_group" "private_sg" {
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "Allow SSH from anywhere"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [aws_instance.public_instance.private_ip]
+  }
+
+  egress {
+    description = "Allow all outbound network"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "private-sg"
   }
 }
